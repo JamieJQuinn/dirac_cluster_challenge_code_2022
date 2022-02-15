@@ -18,14 +18,6 @@ class Particle:
 
         self.tracker = []
 
-    def print(self):
-        print(self.name)
-        print(self.pos)
-        print(self.vel)
-        print(self.acc)
-
-
-
 
 def create_solar_system():
     # Solar system data from https://physics.stackexchange.com/questions/441608/solar-system-position-and-velocity-data
