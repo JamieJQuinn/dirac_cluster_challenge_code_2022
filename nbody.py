@@ -18,11 +18,6 @@ class Particle:
 
         self.tracker = []
 
-    def integrate(self, dt):
-        self.tracker += [self.pos.copy()]
-        self.pos += self.vel * dt
-        self.vel += self.acc * dt
-
     def print(self):
         print(self.name)
         print(self.pos)
@@ -59,7 +54,9 @@ def main():
                 p1.acc += p2.mass * r \
                         / (np.linalg.norm(r)**2 + EPSILON**2)**(1.5)
         for particle in particles:
-            particle.integrate(dt)
+            particle.tracker += [particle.pos.copy()]
+            particle.pos += particle.vel * dt
+            particle.vel += particle.acc * dt
         t += dt
         i += 1
 
