@@ -47,7 +47,7 @@ def main():
                         / (np.linalg.norm(r)**2 + EPSILON**2)**(1.5)
         for particle in particles:
             particle.tracker += [particle.pos.copy()]
-            particle.pos += particle.vel * dt
+            particle.pos += particle.vel * dt + 0.5 * particle.acc * dt**2
             particle.vel += particle.acc * dt
         t += dt
         i += 1
