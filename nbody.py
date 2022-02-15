@@ -23,7 +23,7 @@ class Particle:
 
 def create_solar_system():
     # Solar system data from https://physics.stackexchange.com/questions/441608/solar-system-position-and-velocity-data
-    names = ["Sun", "Mercury", "Venus", "Mars", "Earth", "Jupiter", "Saturn", "Neptune", "Uranus"]
+    names = ["Sun", "Mercury", "Venus", "Earth", "Mars", "Jupiter", "Saturn", "Neptune", "Uranus"]
     m = np.array(([1],[1/6023600],[1/408524],[1/332946.038],[1/3098710],[1/1047.55],[1/3499],[1/22962],[1/19352]))
     r = np.array(([0,0],[0.4,0],[0,0.7],[1,0],[0,1.5],[5.2,0],[0,9.5],[19.2,0],[0,30.1]))
     v = np.array(([0,0],[0,-np.sqrt(1/0.4)],[np.sqrt(1/0.7),0],[0,-1],[np.sqrt(1/1.5),0],[0,-np.sqrt(1/5.2)],[np.sqrt(1/9.5),0],[0,-np.sqrt(1/19.2)],[np.sqrt(1/30.1),0]))
