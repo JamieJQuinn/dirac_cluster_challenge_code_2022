@@ -48,7 +48,7 @@ def create_solar_system():
     r = np.array(([0,0],[0.4,0],[0,0.7],[1,0],[0,1.5],[5.2,0],[0,9.5],[19.2,0],[0,30.1]))
     v = np.array(([0,0],[0,-np.sqrt(1/0.4)],[np.sqrt(1/0.7),0],[0,-1],[np.sqrt(1/1.5),0],[0,-np.sqrt(1/5.2)],[np.sqrt(1/9.5),0],[0,-np.sqrt(1/19.2)],[np.sqrt(1/30.1),0]))
 
-    return [Particle(r[i, 0], r[i,1], 0, v[i,0], v[i,1], 0, m[i,0], name=names[i]) for i in range(2)]
+    return [Particle(r[i, 0], r[i,1], 0, v[i,0], v[i,1], 0, m[i,0], name=names[i]) for i in range(3)]
 
 
 def main():
@@ -64,7 +64,7 @@ def main():
     ax = plt.axes()
     t = 0.0
     i = 0
-    while t < 1.6:
+    while t < 4:
         for particle in particles:
             if i%10 == 0:
                 particle.print()
@@ -74,7 +74,7 @@ def main():
         t += dt
         i += 1
 
-    for p, color in zip(particles, ['red', 'gray']):
+    for p, color in zip(particles, ['red', 'gray', 'pink']):
         xdata = np.array(p.tracker)[:,0]
         print(xdata)
         ydata = np.array(p.tracker)[:,1]
