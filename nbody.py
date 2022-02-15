@@ -55,7 +55,7 @@ def main():
         particle.pos += particle.vel * dt + 0.5 * particle.acc * dt**2
     t += dt
 
-    while t < 200:
+    while t < 2*np.pi:
         for p1 in particles:
             p1.acc[:] = 0.0
             for p2 in particles:
