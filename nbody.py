@@ -28,14 +28,14 @@ def create_solar_system():
     r = np.array(([0,0],[0.4,0],[0,0.7],[1,0],[0,1.5],[5.2,0],[0,9.5],[19.2,0],[0,30.1]))
     v = np.array(([0,0],[0,-np.sqrt(1/0.4)],[np.sqrt(1/0.7),0],[0,-1],[np.sqrt(1/1.5),0],[0,-np.sqrt(1/5.2)],[np.sqrt(1/9.5),0],[0,-np.sqrt(1/19.2)],[np.sqrt(1/30.1),0]))
 
-    return [Particle(r[i, 0], r[i,1], 0, v[i,0], v[i,1], 0, m[i,0], name=names[i]) for i in range(2)]
+    return [Particle(r[i, 0], r[i,1], 0, v[i,0], v[i,1], 0, m[i,0], name=names[i]) for i in range(9)]
 
 
 def main():
 
     particles = create_solar_system()
 
-    dt = 0.01
+    dt = 0.1
     # ax = plt.axes(projection='3d')
     ax = plt.axes()
     start = perf_counter()
@@ -55,7 +55,7 @@ def main():
         particle.pos += particle.vel * dt + 0.5 * particle.acc * dt**2
     t += dt
 
-    while t < 40:
+    while t < 200:
         for p1 in particles:
             p1.acc[:] = 0.0
             for p2 in particles:
@@ -88,11 +88,23 @@ def main():
     print(f"Time to complete: {end-start}")
 
 
+    xmin, xmax = 0.0, 0.0
+    ymin, ymax = 0.0, 0.0
     for p in particles:
         xdata = np.array(p.tracker)[:,0]
         ydata = np.array(p.tracker)[:,1]
+        xmin = min(np.min(xdata), xmin)
+        xmax = max(np.max(xdata), xmax)
+        ymin = min(np.min(ydata), ymin)
+        ymax = max(np.max(ydata), ymax)
         ax.plot(xdata, ydata, label=p.name)
 
+    xmax = max(abs(xmax), abs(xmin))
+    ymax = max(abs(ymax), abs(ymin))
+    xmin = -xmax
+    ymin = -ymax
+    plt.xlim(xmin, xmax)
+    plt.ylim(ymin, ymax)
     plt.legend()
     plt.show()
 
