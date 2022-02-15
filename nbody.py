@@ -20,17 +20,8 @@ class Particle:
 
     def integrate(self, dt):
         self.tracker += [self.pos.copy()]
-        self.pos += self.vel * dt# + self.acc * dt * 0.5
+        self.pos += self.vel * dt
         self.vel += self.acc * dt
-        # self.vel += (self.acc_prev + self.acc) * dt * 0.5
-        # self.acc_prev, self.acc = self.acc, self.acc_prev
-
-    def calc_self_force(self, particles):
-        self.acc[:] = 0.0
-        for particle in particles:
-            r = particle.pos - self.pos
-            self.acc += particle.mass * r \
-                    / (np.linalg.norm(r)**2 + EPSILON**2)**(1.5)
 
     def print(self):
         print(self.name)
@@ -54,10 +45,6 @@ def create_solar_system():
 def main():
 
     particles = create_solar_system()
-
-    for particle in particles:
-        particle.calc_self_force(particles)
-        particle.acc_prev[:] = particle.acc[:]
 
     dt = 0.01
     # ax = plt.axes(projection='3d')
