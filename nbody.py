@@ -52,8 +52,12 @@ def main():
     t = 0.0
     i = 0
     while t < 40:
-        for particle in particles:
-            particle.calc_self_force(particles)
+        for p1 in particles:
+            p1.acc[:] = 0.0
+            for p2 in particles:
+                r = p2.pos - p1.pos
+                p1.acc += p2.mass * r \
+                        / (np.linalg.norm(r)**2 + EPSILON**2)**(1.5)
         for particle in particles:
             particle.integrate(dt)
         t += dt
