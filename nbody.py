@@ -21,6 +21,33 @@ class Particle:
         self.tracker = []
 
 
+def random(num, a=0., b=1.):
+    rng = default_rng()
+    return rng.random(num)*(b-a) + a
+
+
+def generate_random_ics(num):
+    r = random(num, 0.4, 20)
+    theta = random(num, 0., np.pi)
+    v_mag = 1./np.sqrt(r)
+
+    x = r*np.sin(theta)
+    y = r*np.cos(theta)
+
+    vx = -v_mag*np.cos(theta)
+    vy =  v_mag*np.sin(theta)
+
+    m = random(num, 1/6000000, 1/1000)
+
+    x[0] = 0.
+    y[0] = 0.
+    vx[0] = 0.
+    vy[0] = 0.
+    m[0] = 1.
+
+    return [Particle(x[i], y[i], 0, vx[i], vy[i], 0, m[i]) for i in range(num)]
+
+
 def create_solar_system():
     # Solar system data from https://physics.stackexchange.com/questions/441608/solar-system-position-and-velocity-data
     names = ["Sun", "Mercury", "Venus", "Earth", "Mars", "Jupiter", "Saturn", "Neptune", "Uranus"]
