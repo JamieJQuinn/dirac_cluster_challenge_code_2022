@@ -1,24 +1,38 @@
 import numpy as np
+from numpy.random import default_rng
 from scipy.constants import gravitational_constant as G
 import matplotlib.pyplot as plt
 from time import perf_counter
 
 
 EPSILON = 0.001
+N_YEARS = 1
+N_PARTICLES = 8
 
 
-class Particle:
-    def __init__(self, x, y, z, vx, vy, vz, mass, name=None):
-        self.pos = np.array([x, y, z], dtype=np.float64)
-        self.pos_prev = np.array([x, y, z], dtype=np.float64)
-        self.vel = np.array([vx, vy, vz], dtype=np.float64)
-        self.acc = np.array([0, 0, 0], dtype=np.float64)
-        self.acc_prev = np.array([0, 0, 0], dtype=np.float64)
+class Particles:
+    def __init__(self, pos_in, vel_in, mass_in, names_in=None):
+        self.pos = pos_in
+        self.pos_prev = pos_in.copy()
+        self.vel = vel_in
+        self.acc = np.zeros_like(self.pos)
+        self.mass = mass_in
+        self.names = names_in
 
-        self.mass = mass
-        self.name = name
+        self.size = len(mass_in)
 
-        self.tracker = []
+
+# class Particle:
+    # def __init__(self, x, y, z, vx, vy, vz, mass, name=None):
+        # self.pos = np.array([x, y, z], dtype=np.float64)
+        # self.pos_prev = np.array([x, y, z], dtype=np.float64)
+        # self.vel = np.array([vx, vy, vz], dtype=np.float64)
+        # self.acc = np.array([0, 0, 0], dtype=np.float64)
+
+        # self.mass = mass
+        # self.name = name
+
+        # self.tracker = []
 
 
 def random(num, a=0., b=1.):
@@ -31,21 +45,22 @@ def generate_random_ics(num):
     theta = random(num, 0., np.pi)
     v_mag = 1./np.sqrt(r)
 
-    x = r*np.sin(theta)
-    y = r*np.cos(theta)
+    pos = np.zeros((num, 2))
+    vel = np.zeros((num, 2))
 
-    vx = -v_mag*np.cos(theta)
-    vy =  v_mag*np.sin(theta)
+    pos[:,0] = r*np.sin(theta)
+    pos[:,1] = r*np.cos(theta)
 
-    m = random(num, 1/6000000, 1/1000)
+    vel[:,0] = -v_mag*np.cos(theta)
+    vel[:,1] =  v_mag*np.sin(theta)
 
-    x[0] = 0.
-    y[0] = 0.
-    vx[0] = 0.
-    vy[0] = 0.
-    m[0] = 1.
+    mass = random(num, 1/6000000, 1/1000)
 
-    return [Particle(x[i], y[i], 0, vx[i], vy[i], 0, m[i]) for i in range(num)]
+    pos[0,:] = 0.
+    vel[0,:] = 0.
+    mass[0] = 1.
+
+    return Particles(pos, vel, mass)
 
 
 def create_solar_system():
@@ -58,52 +73,55 @@ def create_solar_system():
     return [Particle(r[i, 0], r[i,1], 0, v[i,0], v[i,1], 0, m[i,0], name=names[i]) for i in range(9)]
 
 
+def calc_acceleration(particles):
+    for i in range(particles.size):
+        r = particles.pos - particles.pos[i]
+        acc = r.T * particles.mass / (r[:, 0]**2 + r[:, 1]**2 + EPSILON**2)**(1.5)
+        particles.acc[i] = np.sum(acc)
+
+# def integrate_vel_verlet(particles):
+    # for particle in particles:
+        # particle.tracker += [particle.pos.copy()]
+        # particle.pos += particle.vel * dt + 0.5 * particle.acc * dt**2
+        # particle.vel += particle.acc * dt
+
+
 def main():
+    # particles = create_solar_system()
+    particles = generate_random_ics(N_PARTICLES)
 
-    particles = create_solar_system()
-
-    dt = 0.1
-    # ax = plt.axes(projection='3d')
-    ax = plt.axes()
+    dt = 0.01
     start = perf_counter()
 
     t = 0.0
+    # total_time = N_YEARS*2*np.pi
+    total_time = 100*dt
 
 ## STANDARD VERLET METHOD WITH INITIAL SETUP
-    for p1 in particles:
-        p1.acc[:] = 0.0
-        for p2 in particles:
-            r = p2.pos - p1.pos
-            p1.acc += p2.mass * r \
-                    / (np.linalg.norm(r)**2 + EPSILON**2)**(1.5)
-    for particle in particles:
-        particle.tracker += [particle.pos.copy()]
-        particle.pos_prev[:] = particle.pos[:]
-        particle.pos += particle.vel * dt + 0.5 * particle.acc * dt**2
+    calc_acceleration(particles)
+    particles.pos_prev[:] = particles.pos[:]
+    particles.pos += particles.vel*dt + 0.5*particles.acc*dt**2
+    # for particle in particles:
+        # particle.tracker += [particle.pos.copy()]
+        # particle.pos_prev[:] = particle.pos[:]
+        # particle.pos += particle.vel * dt + 0.5 * particle.acc * dt**2
     t += dt
 
-    while t < 2*np.pi:
-        for p1 in particles:
-            p1.acc[:] = 0.0
-            for p2 in particles:
-                r = p2.pos - p1.pos
-                p1.acc += p2.mass * r \
-                        / (np.linalg.norm(r)**2 + EPSILON**2)**(1.5)
-        for particle in particles:
-            particle.tracker += [particle.pos.copy()]
-            temp_pos = particle.pos.copy()
-            particle.pos = 2.0 * particle.pos - particle.pos_prev + particle.acc * dt**2
-            particle.pos_prev[:] = temp_pos[:]
+    while t < total_time:
+        calc_acceleration(particles)
+        temp_pos = particles.pos.copy()
+        particles.pos = 2.0 * particles.pos - particles.pos_prev + particles.acc * dt**2
+        particles.pos_prev[:] = temp_pos[:]
+        # for particle in particles:
+            # particle.tracker += [particle.pos.copy()]
+            # temp_pos = particle.pos.copy()
+            # particle.pos = 2.0 * particle.pos - particle.pos_prev + particle.acc * dt**2
+            # particle.pos_prev[:] = temp_pos[:]
         t += dt
 
 ## VELOCITY VERLET METHOD:
-    # while t < 40:
-        # for p1 in particles:
-            # p1.acc[:] = 0.0
-            # for p2 in particles:
-                # r = p2.pos - p1.pos
-                # p1.acc += p2.mass * r \
-                        # / (np.linalg.norm(r)**2 + EPSILON**2)**(1.5)
+    # while t < total_time:
+        # calc_acceleration(particles)
         # for particle in particles:
             # particle.tracker += [particle.pos.copy()]
             # particle.pos += particle.vel * dt + 0.5 * particle.acc * dt**2
@@ -114,27 +132,31 @@ def main():
 
     print(f"Time to complete: {end-start}")
 
+    # ax = plt.axes(projection='3d')
+    # ax = plt.axes()
+    # xmin, xmax = 0.0, 0.0
+    # ymin, ymax = 0.0, 0.0
+    # for p in particles:
+        # xdata = np.array(p.tracker)[:,0]
+        # ydata = np.array(p.tracker)[:,1]
+        # xmin = min(np.min(xdata), xmin)
+        # xmax = max(np.max(xdata), xmax)
+        # ymin = min(np.min(ydata), ymin)
+        # ymax = max(np.max(ydata), ymax)
+        # ax.plot(xdata, ydata, label=p.name)
 
-    xmin, xmax = 0.0, 0.0
-    ymin, ymax = 0.0, 0.0
-    for p in particles:
-        xdata = np.array(p.tracker)[:,0]
-        ydata = np.array(p.tracker)[:,1]
-        xmin = min(np.min(xdata), xmin)
-        xmax = max(np.max(xdata), xmax)
-        ymin = min(np.min(ydata), ymin)
-        ymax = max(np.max(ydata), ymax)
-        ax.plot(xdata, ydata, label=p.name)
-
-    xmax = max(abs(xmax), abs(xmin))
-    ymax = max(abs(ymax), abs(ymin))
-    xmin = -xmax
-    ymin = -ymax
-    plt.xlim(xmin, xmax)
-    plt.ylim(ymin, ymax)
-    plt.legend()
-    plt.show()
+    # xmax = max(abs(xmax), abs(xmin))
+    # ymax = max(abs(ymax), abs(ymin))
+    # xmin = -xmax
+    # ymin = -ymax
+    # plt.xlim(xmin, xmax)
+    # plt.ylim(ymin, ymax)
+    # plt.legend()
+    # plt.show()
 
 
 if __name__ == "__main__":
-    main()
+    # main()
+    for N_PARTICLES in [8, 16, 32, 64, 128, 256, 512, 1024, 2048]:
+        print(N_PARTICLES)
+        main()
