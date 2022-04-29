@@ -8,10 +8,64 @@ from numba import njit, prange
 
 
 PARALLEL=False
-EPSILON = 0.01
 N_YEARS = 0.1
 N_PARTICLES = 100
 FP_TYPE = np.float64
+
+
+# L_MOON = L_SATURN # m
+# T_MOON = 1e8 # s
+# M_MOON = 4e19 # kg
+# G_MOON = G_MKS * M_MOON * T_MOON**2 / L_MOON**3
+
+# EPSILON_MOON = 250e3/L_MOON # radius of Enceladus
+
+# print(G_MOON)
+
+
+def calc_grav_const(L, T, M):
+    G_MKS = 6.67408e-11 # m**3 kg**-1 s**-2
+    return G_MKS * M * T**2 / L**3
+
+
+class SaturnSystem():
+    def __init__(self, L, T, M, particle_pos, particle_vel, dt):
+        self.G = calc_grav_const(L, T, M)
+        self.L = L
+        self.T = T
+        self.M = M
+        self.EPSILON = 58e6/self.L
+        self.dt = dt
+
+        self.particle_pos = particle_pos.copy()
+        self.acc = np.zeros_like(self.particle_pos)
+        self.body_pos = np.array([(0.,0.)])
+        self.body_mass = np.array([5.683e26/self.M])
+
+        self.calc_acc()
+        self.particle_pos_prev = self.particle_pos - particle_vel*self.dt - 0.5*self.acc*self.dt**2
+        self.particle_pos_temp = np.zeros_like(self.particle_pos)
+
+    @njit
+    def calc_acc(self):
+        for i in prange(len(particle_pos)):
+            acc[i,:] = 0.0
+            for j in range(len(body_pos)):
+                r = body_pos[j,:] - particle_pos[i,:]
+                acc[i,:] += G * r * body_mass[j] / (r[0]**2 + r[1]**2 + epsilon**2)**(1.5)
+
+    def advance_pos(self):
+        advance_pos(self.acc, self.particle_pos, self.particle_pos_prev, self.particle_pos_temp, self.dt)
+
+    def plot(self):
+        plt.scatter(self.particle_pos[:,0], self.particle_pos[:,1])
+        plt.quiver(
+            self.particle_pos[:,0],
+            self.particle_pos[:,1],
+            (self.particle_pos[:,0]-self.particle_pos_prev[:,0])/(2*self.dt),
+            (self.particle_pos[:,1]-self.particle_pos_prev[:,1])/(2*self.dt))
+        plt.show()
+
 
 
 def random(num, a=0., b=1.):
@@ -19,8 +73,8 @@ def random(num, a=0., b=1.):
     return rng.random(num, dtype=FP_TYPE)*(b-a) + a
 
 
-def calc_stable_orbit(r, theta):
-    v_mag = 1./np.sqrt(r)
+def calc_stable_orbit(r, theta, GM=1.):
+    v_mag = np.sqrt(GM/r)
 
     pos = np.zeros((r.shape[0], 2))
     vel = np.zeros((r.shape[0], 2))
@@ -34,48 +88,26 @@ def calc_stable_orbit(r, theta):
     return pos, vel
 
 
-def generate_random_star_system(num):
+def generate_ring(num, radius_min, radius_max, GM=1.):
     # Generate similar system to the solar system
-    r = random(num, 0.4, 20)
-    mass = random(num, 1/6000000, 1/1000)
+    r = random(num, radius_min, radius_max)
 
-    theta = random(num, 0., np.pi)
-    pos, vel = calc_stable_orbit(r, theta)
+    theta = random(num, 0., 2.*np.pi)
+    pos, vel = calc_stable_orbit(r, theta, GM=GM)
 
-    # Add central star
-    pos[0,:] = 0.
-    vel[0,:] = 0.
-    mass[0] = 1.
-
-    return pos, vel, mass
-
-
-def create_solar_system():
-    # Solar system data from https://physics.stackexchange.com/questions/441608/solar-system-position-and-velocity-data
-
-    names = ["Sun", "Mercury", "Venus", "Earth", "Mars", "Jupiter", "Saturn", "Neptune", "Uranus"]
-
-    mass = np.array((1,1/6023600,1/408524,1/332946.038,1/3098710,1/1047.55,1/3499,1/22962,1/19352))
-    r = np.array((0.1, 0.4, 0.7, 1, 1.5, 5.2, 9.5, 19.2, 30.1))
-    pos, vel = calc_stable_orbit(r, random(len(r), 0., np.pi))
-
-    pos[0,:] = 0.
-    vel[0,:] = 0.
-    mass[0] = 1.
-
-    return pos, vel, mass
+    return pos, vel
 
 
 @njit(parallel=True)
-def calc_acc(acc, pos, mass):
-    for i in prange(len(pos)):
+def calc_acc(acc, pos, mass, epsilon=0.01):
+    # Calc acceleration on particles from all other particles
+    for i in prange(len(particle_pos)):
         acc[i,:] = 0.0
-        for j in range(len(pos)):
+        for j in range(len(particle_pos)):
             if i == j:
-                # Skip self-comparison
                 continue
             r = pos[j] - pos[i]
-            acc[i,:] += r * mass[j] / (r[0]**2 + r[1]**2 + EPSILON**2)**(1.5)
+            acc[i,:] += r * mass[j] / (r[0]**2 + r[1]**2 + epsilon**2)**(1.5)
 
 
 # @njit
@@ -86,56 +118,52 @@ def advance_pos(acc, pos, pos_prev, pos_temp, dt):
 
 
 def main():
-
-    dt = 0.01
+    dt = 0.0001
     total_time = 10000*dt
     # total_time = N_YEARS*2*np.pi
-    pos_tracker = []
 
     # Load initial conditions
     # pos, vel, mass = create_solar_system()
-    pos, vel, mass = generate_random_star_system(N_PARTICLES)
-    acc = np.zeros_like(pos)
-    calc_acc(acc, pos, mass)
-    pos_prev = pos - vel*dt - 0.5*acc*dt**2
-    pos_temp = np.zeros_like(pos)
+    ring_pos, ring_vel = generate_ring(N_PARTICLES, 1, 2, GM=1.*calc_grav_const(1e8, 1e5, 5.683e26))
+    saturnSystem = SaturnSystem(1e8, 1e5, 5.683e26, ring_pos, ring_vel, dt)
 
     start = perf_counter()
 
     t = 0
     while t < total_time:
-        pos_tracker += [pos.copy()]
-        calc_acc(acc, pos, mass)
-        advance_pos(acc, pos, pos_prev, pos_temp, dt)
+        saturnSystem.calc_acc()
+        saturnSystem.advance_pos()
         t += dt
 
     end = perf_counter()
 
     print(f"Time to complete: {end-start}")
 
-    positions_for_plotting = np.array(pos_tracker)
+    saturnSystem.plot()
 
-    ax = plt.axes(projection='3d')
-    ax = plt.axes()
-    xmin, xmax = 0.0, 0.0
-    ymin, ymax = 0.0, 0.0
-    for i in range(len(pos)):
-        xdata = positions_for_plotting[:,i,0]
-        ydata = positions_for_plotting[:,i,1]
-        xmin = min(np.min(xdata), xmin)
-        xmax = max(np.max(xdata), xmax)
-        ymin = min(np.min(ydata), ymin)
-        ymax = max(np.max(ydata), ymax)
-        ax.plot(xdata, ydata)
+    # positions_for_plotting = np.array(pos_tracker)
 
-    xmax = max(abs(xmax), abs(xmin))
-    ymax = max(abs(ymax), abs(ymin))
-    xmin = -xmax
-    ymin = -ymax
-    plt.xlim(xmin, xmax)
-    plt.ylim(ymin, ymax)
-    plt.legend()
-    plt.show()
+    # ax = plt.axes(projection='3d')
+    # ax = plt.axes()
+    # xmin, xmax = 0.0, 0.0
+    # ymin, ymax = 0.0, 0.0
+    # for i in range(len(pos)):
+        # xdata = positions_for_plotting[:,i,0]
+        # ydata = positions_for_plotting[:,i,1]
+        # xmin = min(np.min(xdata), xmin)
+        # xmax = max(np.max(xdata), xmax)
+        # ymin = min(np.min(ydata), ymin)
+        # ymax = max(np.max(ydata), ymax)
+        # ax.plot(xdata, ydata)
+
+    # xmax = max(abs(xmax), abs(xmin))
+    # ymax = max(abs(ymax), abs(ymin))
+    # xmin = -xmax
+    # ymin = -ymax
+    # plt.xlim(xmin, xmax)
+    # plt.ylim(ymin, ymax)
+    # plt.legend()
+    # plt.show()
 
 
 if __name__ == "__main__":
