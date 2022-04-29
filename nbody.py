@@ -4,10 +4,13 @@ from scipy.constants import gravitational_constant as G
 import matplotlib.pyplot as plt
 from time import perf_counter
 
+from numba import njit, prange
 
-EPSILON = 0.001
-N_YEARS = 50
-N_PARTICLES = 2
+
+PARALLEL=False
+EPSILON = 0.01
+N_YEARS = 0.1
+N_PARTICLES = 100
 FP_TYPE = np.float64
 
 
@@ -16,13 +19,11 @@ def random(num, a=0., b=1.):
     return rng.random(num, dtype=FP_TYPE)*(b-a) + a
 
 
-def generate_random_ics(num):
-    r = random(num, 0.4, 20)
-    theta = random(num, 0., np.pi)
+def calc_stable_orbit(r, theta):
     v_mag = 1./np.sqrt(r)
 
-    pos = np.zeros((num, 2), dtype=FP_TYPE)
-    vel = np.zeros((num, 2), dtype=FP_TYPE)
+    pos = np.zeros((r.shape[0], 2))
+    vel = np.zeros((r.shape[0], 2))
 
     pos[:,0] = r*np.sin(theta)
     pos[:,1] = r*np.cos(theta)
@@ -30,8 +31,18 @@ def generate_random_ics(num):
     vel[:,0] = -v_mag*np.cos(theta)
     vel[:,1] =  v_mag*np.sin(theta)
 
+    return pos, vel
+
+
+def generate_random_star_system(num):
+    # Generate similar system to the solar system
+    r = random(num, 0.4, 20)
     mass = random(num, 1/6000000, 1/1000)
 
+    theta = random(num, 0., np.pi)
+    pos, vel = calc_stable_orbit(r, theta)
+
+    # Add central star
     pos[0,:] = 0.
     vel[0,:] = 0.
     mass[0] = 1.
@@ -45,14 +56,19 @@ def create_solar_system():
     names = ["Sun", "Mercury", "Venus", "Earth", "Mars", "Jupiter", "Saturn", "Neptune", "Uranus"]
 
     mass = np.array((1,1/6023600,1/408524,1/332946.038,1/3098710,1/1047.55,1/3499,1/22962,1/19352))
-    pos = np.array(([0,0],[0.4,0],[0,0.7],[1,0],[0,1.5],[5.2,0],[0,9.5],[19.2,0],[0,30.1]))
-    vel = np.array(([0,0],[0,-np.sqrt(1/0.4)],[np.sqrt(1/0.7),0],[0,-1],[np.sqrt(1/1.5),0],[0,-np.sqrt(1/5.2)],[np.sqrt(1/9.5),0],[0,-np.sqrt(1/19.2)],[np.sqrt(1/30.1),0]))
+    r = np.array((0.1, 0.4, 0.7, 1, 1.5, 5.2, 9.5, 19.2, 30.1))
+    pos, vel = calc_stable_orbit(r, random(len(r), 0., np.pi))
+
+    pos[0,:] = 0.
+    vel[0,:] = 0.
+    mass[0] = 1.
 
     return pos, vel, mass
 
 
+@njit(parallel=True)
 def calc_acc(acc, pos, mass):
-    for i in range(len(pos)):
+    for i in prange(len(pos)):
         acc[i,:] = 0.0
         for j in range(len(pos)):
             if i == j:
@@ -62,6 +78,7 @@ def calc_acc(acc, pos, mass):
             acc[i,:] += r * mass[j] / (r[0]**2 + r[1]**2 + EPSILON**2)**(1.5)
 
 
+# @njit
 def advance_pos(acc, pos, pos_prev, pos_temp, dt):
     pos_temp[:] = pos[:]
     pos[:] = 2.0 * pos - pos_prev + acc * dt**2
@@ -76,8 +93,8 @@ def main():
     pos_tracker = []
 
     # Load initial conditions
-    pos, vel, mass = create_solar_system()
-    # pos, vel, mass = generate_random_ics(N_PARTICLES)
+    # pos, vel, mass = create_solar_system()
+    pos, vel, mass = generate_random_star_system(N_PARTICLES)
     acc = np.zeros_like(pos)
     calc_acc(acc, pos, mass)
     pos_prev = pos - vel*dt - 0.5*acc*dt**2
