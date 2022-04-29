@@ -53,8 +53,13 @@ def create_solar_system():
 
 def calc_acc(acc, pos, mass):
     for i in range(len(pos)):
-        r = pos - pos[i]
-        acc[i] = np.sum(r.T * mass / (r[:, 0]**2 + r[:, 1]**2 + EPSILON**2)**(1.5), axis=1)
+        acc[i,:] = 0.0
+        for j in range(len(pos)):
+            if i == j:
+                # Skip self-comparison
+                continue
+            r = pos[j] - pos[i]
+            acc[i,:] += r * mass[j] / (r[0]**2 + r[1]**2 + EPSILON**2)**(1.5)
 
 
 def advance_pos(acc, pos, pos_prev, pos_temp, dt):
