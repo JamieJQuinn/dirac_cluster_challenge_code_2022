@@ -85,8 +85,8 @@ def diffuse_explicit(x, x0, dt, diff, nx, ny, dx, dy, set_boundary_fn):
     set_boundary_fn(x)
 
 
-# @njit(parallel=True)
-def project(u, v, p, div, nx, ny, dx, dy, n_iterations = 1000):
+@njit(parallel=True)
+def project(u, v, p, div, nx, ny, dx, dy, max_iterations = 100):
     """
     Calculate pressure required to keep fluid incompressible and add pressure force to flow
     """
@@ -104,22 +104,13 @@ def project(u, v, p, div, nx, ny, dx, dy, n_iterations = 1000):
 
     D = -2.*(1./dx**2 + 1./dy**2)
 
-    residuals = np.zeros((n_iterations))
-
-    for k in range(n_iterations):
+    for k in range(max_iterations):
         for i in numba.prange(1,nx+1):
             for j in numba.prange(1, ny+1):
                 temp[i,j] = (div[i,j] - (p[i-1,j] + p[i+1,j])/dx**2 - (p[i,j-1] + p[i,j+1])/dy**2)/D
 
         p[:] = temp[:]
         set_pressure_bcs(p)
-        for i in numba.prange(1,nx+1):
-            for j in numba.prange(1, ny+1):
-                temp[i,j] = div[i,j] - (p[i-1,j] - 2.*p[i,j] + p[i+1,j])/dx**2 - (p[i,j-1]  - 2.*p[i,j] + p[i,j+1])/dy**2
-        residuals[k] = np.mean(np.abs(temp))
-
-    plt.plot(residuals)
-    plt.show()
 
     for i in range(1,nx+1):
         for j in range(1, ny+1):
