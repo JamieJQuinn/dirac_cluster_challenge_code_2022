@@ -62,16 +62,18 @@ def set_bnd(b, x):
 @njit(parallel=True)
 def diffuse(x, x0, dt, diff, nx, ny, dx, dy, set_boundary_fn, n_iterations=100):
     """
-    Add diffusion term to x using implicit Jacobi method
+    Add diffusion term to x using Gauss-Siedel method
     """
+    temp = np.zeros_like(x)
     for k in range(n_iterations):
         for i in numba.prange(1,nx+1):
             for j in numba.prange(1, ny+1):
-                x[i, j] = (x0[i,j]
+                temp[i, j] = (x0[i,j]
                            + diff*dt*(
                                  (x[i-1,j] + x[i+1,j])/dx**2
                                + (x[i,j-1] + x[i,j+1])/dy**2))\
                         / (1.0+2.0*diff*dt*(1./dx**2 + 1./dy**2))
+        x[:] = temp[:]
         set_boundary_fn(x)
 
 
@@ -83,26 +85,41 @@ def diffuse_explicit(x, x0, dt, diff, nx, ny, dx, dy, set_boundary_fn):
     set_boundary_fn(x)
 
 
-@njit(parallel=True)
-def project(u, v, p, div, nx, ny, dx, dy, n_iterations = 100):
+# @njit(parallel=True)
+def project(u, v, p, div, nx, ny, dx, dy, n_iterations = 1000):
     """
     Calculate pressure required to keep fluid incompressible and add pressure force to flow
     """
     # JACOBI ITERATION
     for i in range(1,nx+1):
         for j in range(1, ny+1):
-            div[i,j] = -0.5*((u[i+1, j] - u[i-1, j])*dx + (v[i, j+1] - v[i, j-1])*dy)
+            div[i,j] = 0.5*(u[i+1, j] - u[i-1, j])/dx + 0.5*(v[i, j+1] - v[i, j-1])/dy
 
     p[:] = 0.0
 
-    set_von_neumann_bcs(div)
+    set_dirichlet_bcs(div, [0.0, 0.0, 0.0, 0.0])
     set_pressure_bcs(p)
+
+    temp = np.zeros_like(p)
+
+    D = -2.*(1./dx**2 + 1./dy**2)
+
+    residuals = np.zeros((n_iterations))
 
     for k in range(n_iterations):
         for i in numba.prange(1,nx+1):
             for j in numba.prange(1, ny+1):
-                p[i,j] = (div[i,j] + p[i-1,j] + p[i+1,j] + p[i,j-1] + p[i,j+1])/4
+                temp[i,j] = (div[i,j] - (p[i-1,j] + p[i+1,j])/dx**2 - (p[i,j-1] + p[i,j+1])/dy**2)/D
+
+        p[:] = temp[:]
         set_pressure_bcs(p)
+        for i in numba.prange(1,nx+1):
+            for j in numba.prange(1, ny+1):
+                temp[i,j] = div[i,j] - (p[i-1,j] - 2.*p[i,j] + p[i+1,j])/dx**2 - (p[i,j-1]  - 2.*p[i,j] + p[i,j+1])/dy**2
+        residuals[k] = np.mean(np.abs(temp))
+
+    plt.plot(residuals)
+    plt.show()
 
     for i in range(1,nx+1):
         for j in range(1, ny+1):
