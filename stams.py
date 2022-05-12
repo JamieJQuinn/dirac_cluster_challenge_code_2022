@@ -35,6 +35,15 @@ def set_von_neumann_bcs(x):
 
 
 @njit
+def set_periodic_bcs(x):
+    x[ 0, :] = x[-2, :]
+    x[-1, :] = x[1, :]
+    x[:,  0] = x[:, -2]
+    x[:, -1] = x[:, 1]
+    handle_corners(x)
+
+
+@njit
 def set_u_bcs(u):
     set_dirichlet_bcs(u, [0.0, 0.0, 0.0, 0.0])
 
@@ -47,6 +56,69 @@ def set_v_bcs(v):
 @njit
 def set_pressure_bcs(p):
     set_von_neumann_bcs(p)
+
+
+@njit
+def solve(A, x, b, r, p, nx, ny,
+          apply_bcs=lambda x: x,
+          max_iterations=100,
+          conv_epsilon=1e-8):
+    """
+    Solve Ax = b via the conjugate gradient method TODO find source
+    A is a function which, given a vector, returns the matrix-vector product
+    x is the initial guess and also the final output
+    b is the right hand side of the matrix equation to be solved
+    r is the residuals array (same size as x)
+    p is the current guess array (same size as x)
+    apply_bcs is a function which applies boundary conditions
+    """
+
+    apply_bcs(x)
+
+    r_norm = 0.0
+    for i in range(1, nx+1):
+        for j in range(1, ny+1):
+            r[i,j] = b[i,j] - A(x, i, j)
+            p[i,j] = r[i,j]
+            r_norm += (r[i,j])**2
+
+    for k in range(max_iterations):
+        # print("direction pre-bcs")
+        # im = plt.imshow(p.T, origin='lower')
+        # plt.colorbar(im)
+        # plt.show()
+        apply_bcs(p)
+        # print("direction post-bcs")
+        # im = plt.imshow(p.T, origin='lower')
+        # plt.colorbar(im)
+        # plt.show()
+        pAp = 0.0
+        for i in range(1, nx+1):
+            for j in range(1, ny+1):
+                pAp += p[i,j]*A(p,i,j)
+        alpha = r_norm/pAp
+        # print(alpha, r_norm, pAp)
+        for i in range(1, nx+1):
+            for j in range(1, ny+1):
+                x[i,j] += alpha*p[i,j]
+        # print("solution")
+        # im = plt.imshow(x.T, origin='lower')
+        # plt.colorbar(im)
+        # plt.show()
+        apply_bcs(x)
+        r_norm_prev = r_norm
+        r_norm = 0.0
+        for i in range(1, nx+1):
+            for j in range(1, ny+1):
+                r[i,j] = b[i,j] - A(x, i, j)
+                r_norm += (r[i,j])**2
+        if r_norm < conv_epsilon:
+            return
+        beta = r_norm/r_norm_prev
+        # beta = 0 # Restart from x
+        for i in range(1, nx+1):
+            for j in range(1, ny+1):
+                p[i,j] = r[i,j] + beta*p[i,j]
 
 
 @njit(parallel=True)
@@ -191,13 +263,13 @@ def main():
     while t < total_time:
         # u_conv[:] = u[:]
         # v_conv[:] = v[:]
-        if (t > time_to_next_dump):
-            plot = plt.quiver(x[1:-1], y[1:-1], u[1:-1,1:-1].T, v[1:-1,1:-1].T, animated=True)
-            if len(plots) == 0:
-                plt.quiver(x[1:-1], y[1:-1], u[1:-1,1:-1].T, v[1:-1,1:-1].T, animated=True)
-            plots.append([plot])
-            print(f"t={t} of {total_time}")
-            time_to_next_dump += dump_dt
+        # if (t > time_to_next_dump):
+            # plot = plt.quiver(x[1:-1], y[1:-1], u[1:-1,1:-1].T, v[1:-1,1:-1].T, animated=True)
+            # if len(plots) == 0:
+                # plt.quiver(x[1:-1], y[1:-1], u[1:-1,1:-1].T, v[1:-1,1:-1].T, animated=True)
+            # plots.append([plot])
+            # print(f"t={t} of {total_time}")
+            # time_to_next_dump += dump_dt
         u_prev[(X-lx/2.)**2 + (Y-ly/2.)**2 < 0.1**2] = 1.0
         diffuse(u, u_prev, dt, visc, nx, ny, dx, dy, set_u_bcs)
         diffuse(v, v_prev, dt, visc, nx, ny, dx, dy, set_v_bcs)
@@ -223,7 +295,7 @@ def main():
     plt.pcolormesh(X[1:-1,1:-1], Y[1:-1,1:-1], pressure[1:-1,1:-1])
     # vlimit = max(abs(np.max(vorticity)), abs(np.min(vorticity)))
     # plot = plt.pcolormesh(X[1:-1,1:-1], Y[1:-1,1:-1], vorticity, cmap='RdBu', vmax=vlimit, vmin=-vlimit)
-    plt.colorbar(plot)
+    # plt.colorbar(plot)
     plt.quiver(x, y, u.T, v.T)
     ax.set_aspect('equal')
     plt.xlim(0, lx)
