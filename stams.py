@@ -49,16 +49,6 @@ def set_pressure_bcs(p):
     set_von_neumann_bcs(p)
 
 
-@njit
-def set_bnd(b, x):
-    if b == 0:
-        # x-velocity
-        set_u_bcs(x)
-    elif b == 1:
-        # y-velocity
-        set_v_bcs(x)
-
-
 @njit(parallel=True)
 def diffuse(x, x0, dt, diff, nx, ny, dx, dy, set_boundary_fn, n_iterations=100):
     """
@@ -75,14 +65,6 @@ def diffuse(x, x0, dt, diff, nx, ny, dx, dy, set_boundary_fn, n_iterations=100):
                         / (1.0+2.0*diff*dt*(1./dx**2 + 1./dy**2))
         x[:] = temp[:]
         set_boundary_fn(x)
-
-
-@njit(parallel=True)
-def diffuse_explicit(x, x0, dt, diff, nx, ny, dx, dy, set_boundary_fn):
-    for i in numba.prange(1,nx+1):
-        for j in numba.prange(1, ny+1):
-            x[i, j] = x0[i,j] + diff*dt*((x0[i+1,j] - 2.0*x0[i,j] + x0[i-1,j])/(dx**2) + (x0[i,j+1] - 2.0*x0[i,j] + x0[i,j-1])/(dy**2))
-    set_boundary_fn(x)
 
 
 @njit(parallel=True)
@@ -122,7 +104,7 @@ def project(u, v, p, div, nx, ny, dx, dy, max_iterations = 100):
 
 
 @njit(parallel=True)
-def advect(b, q, q0, u, v, dt, dx, dy, nx, ny):
+def advect(q, q0, u, v, dt, dx, dy, nx, ny, set_boundary_fn):
     for i in numba.prange(1, nx+1):
         for j in numba.prange(1, ny+1):
             x = i-dt/dx*u[i,j]
@@ -146,15 +128,7 @@ def advect(b, q, q0, u, v, dt, dx, dy, nx, ny):
                 s0*(t0*q0[i0, j0] + t1*q0[i0, j1]) +\
                 s1*(t0*q0[i1, j0] + t1*q0[i1, j1])
 
-    set_bnd(b, q)
-
-
-@njit(parallel=True)
-def advect_explicit(b, x, x0, u, v, dt, dx, dy, nx, ny):
-    for i in numba.prange(1,nx+1):
-        for j in numba.prange(1, ny+1):
-            x[i, j] = x0[i,j] + 0.5*dt*u[i,j]*(x0[i+1,j] - x0[i-1,j])/dx + 0.5*dt*v[i,j]*(x0[i,j+1] - x0[i,j-1])/dy
-    set_bnd(b, x)
+    set_boundary_fn(q)
 
 
 def main():
@@ -230,8 +204,8 @@ def main():
         project(u, v, u_prev, v_prev, nx, ny, dx, dy)
         u_prev[:] = u[:]
         v_prev[:] = v[:]
-        advect(0, u, u_prev, u_prev, v_prev, dt, dx, dy, nx, ny)
-        advect(1, v, v_prev, u_prev, v_prev, dt, dx, dy, nx, ny)
+        advect(u, u_prev, u_prev, v_prev, dt, dx, dy, nx, ny, set_u_bcs)
+        advect(v, v_prev, u_prev, v_prev, dt, dx, dy, nx, ny, set_v_bcs)
         project(u, v, u_prev, v_prev, nx, ny, dx, dy)
         pressure[:] = u_prev[:]
         u_prev[:] = u[:]
