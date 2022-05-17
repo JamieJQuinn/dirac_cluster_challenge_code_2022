@@ -1,4 +1,4 @@
-from numba import njit
+from numba import njit, prange
 from numba.experimental import jitclass
 import numba
 import numpy as np
@@ -151,8 +151,8 @@ def project(u, v, p, div, nx, ny, dx, dy, max_iterations = 100):
     D = -2.*(1./dx**2 + 1./dy**2)
 
     for k in range(max_iterations):
-        for i in numba.prange(1,nx+1):
-            for j in numba.prange(1, ny+1):
+        for i in prange(1,nx+1):
+            for j in prange(1, ny+1):
                 temp[i,j] = (div[i,j] - (p[i-1,j] + p[i+1,j])/dx**2 - (p[i,j-1] + p[i,j+1])/dy**2)/D
 
         p[:] = temp[:]
