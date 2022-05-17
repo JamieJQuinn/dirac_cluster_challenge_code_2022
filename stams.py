@@ -86,9 +86,9 @@ def project(u, v, p, div, nx, ny, dx, dy, max_iterations = 100):
         for j in range(1, ny+1):
             div[i,j] = 0.5*(u[i+1, j] - u[i-1, j])/dx + 0.5*(v[i, j+1] - v[i, j-1])/dy
 
-    p[:] = 0.0
+    p[:] = 0.
 
-    set_dirichlet_bcs(div, [0.0, 0.0, 0.0, 0.0])
+    set_dirichlet_bcs(div, [0., 0., 0., 0.])
     set_pressure_bcs(p)
 
     temp = np.zeros_like(p)
