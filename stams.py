@@ -1,13 +1,9 @@
-from numba import njit, prange
-from numba.experimental import jitclass
-import numba
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 from time import perf_counter
 
 
-@njit
 def handle_corners(x):
     x[ 0,  0] = 0.5*(x[ 1,  0] + x[ 0,  1])
     x[ 0, -1] = 0.5*(x[ 1, -1] + x[ 0, -2])
@@ -15,7 +11,6 @@ def handle_corners(x):
     x[-1, -1] = 0.5*(x[-2, -1] + x[-1, -2])
 
 
-@njit
 def set_dirichlet_bcs(x, bcs):
     left, top, right, bottom = bcs
     x[ 0, :] = -x[1,:] + 2.*left
@@ -25,7 +20,6 @@ def set_dirichlet_bcs(x, bcs):
     handle_corners(x)
 
 
-@njit
 def set_von_neumann_bcs(x):
     x[ 0, :] = x[ 1, :]
     x[-1, :] = x[-2, :]
@@ -34,7 +28,6 @@ def set_von_neumann_bcs(x):
     handle_corners(x)
 
 
-@njit
 def set_periodic_bcs(x):
     x[ 0, :] = x[-2, :]
     x[-1, :] = x[1, :]
@@ -43,30 +36,26 @@ def set_periodic_bcs(x):
     handle_corners(x)
 
 
-@njit
 def set_u_bcs(u):
     set_dirichlet_bcs(u, [0., 0., 0., 0.])
 
 
-@njit
 def set_v_bcs(v):
     set_dirichlet_bcs(v, [0., 0., 0., 0.])
 
 
-@njit
 def set_pressure_bcs(p):
     set_von_neumann_bcs(p)
 
 
-@njit(parallel=True)
 def diffuse(x, x0, dt, diff, nx, ny, dx, dy, set_boundary_fn, n_iterations=100):
     """
     Add diffusion term to x using Gauss-Siedel method
     """
     temp = np.zeros_like(x)
     for k in range(n_iterations):
-        for i in numba.prange(1,nx+1):
-            for j in numba.prange(1, ny+1):
+        for i in range(1,nx+1):
+            for j in range(1, ny+1):
                 temp[i, j] = (x0[i,j]
                            + diff*dt*(
                                  (x[i-1,j] + x[i+1,j])/dx**2
@@ -111,10 +100,9 @@ def project(u, v, p, div, nx, ny, dx, dy, max_iterations = 100):
     set_v_bcs(v)
 
 
-@njit(parallel=True)
 def advect(q, q0, u, v, dt, dx, dy, nx, ny, set_boundary_fn):
-    for i in numba.prange(1, nx+1):
-        for j in numba.prange(1, ny+1):
+    for i in range(1, nx+1):
+        for j in range(1, ny+1):
             x = i-dt/dx*u[i,j]
             y = j-dt/dy*v[i,j]
 
