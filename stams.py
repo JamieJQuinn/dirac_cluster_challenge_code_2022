@@ -18,10 +18,10 @@ def handle_corners(x):
 @njit
 def set_dirichlet_bcs(x, bcs):
     left, top, right, bottom = bcs
-    x[ 0, :] = -x[1,:] + 2.0*left
-    x[-1, :] = -x[-2,:] + 2.0*right
-    x[ :,  0] = -x[:,1] + 2.0*bottom
-    x[ :, -1] = -x[:,-2] + 2.0*top
+    x[ 0, :] = -x[1,:] + 2.*left
+    x[-1, :] = -x[-2,:] + 2.*right
+    x[ :,  0] = -x[:,1] + 2.*bottom
+    x[ :, -1] = -x[:,-2] + 2.*top
     handle_corners(x)
 
 
@@ -45,12 +45,12 @@ def set_periodic_bcs(x):
 
 @njit
 def set_u_bcs(u):
-    set_dirichlet_bcs(u, [0.0, 0.0, 0.0, 0.0])
+    set_dirichlet_bcs(u, [0., 0., 0., 0.])
 
 
 @njit
 def set_v_bcs(v):
-    set_dirichlet_bcs(v, [0.0, 0.0, 0.0, 0.0])
+    set_dirichlet_bcs(v, [0., 0., 0., 0.])
 
 
 @njit
@@ -71,12 +71,11 @@ def diffuse(x, x0, dt, diff, nx, ny, dx, dy, set_boundary_fn, n_iterations=100):
                            + diff*dt*(
                                  (x[i-1,j] + x[i+1,j])/dx**2
                                + (x[i,j-1] + x[i,j+1])/dy**2))\
-                        / (1.0+2.0*diff*dt*(1./dx**2 + 1./dy**2))
+                        / (1.+2.*diff*dt*(1./dx**2 + 1./dy**2))
         x[:] = temp[:]
         set_boundary_fn(x)
 
 
-@njit(parallel=True)
 def project(u, v, p, div, nx, ny, dx, dy, max_iterations = 100):
     """
     Calculate pressure required to keep fluid incompressible and add pressure force to flow
@@ -96,8 +95,8 @@ def project(u, v, p, div, nx, ny, dx, dy, max_iterations = 100):
     D = -2.*(1./dx**2 + 1./dy**2)
 
     for k in range(max_iterations):
-        for i in prange(1,nx+1):
-            for j in prange(1, ny+1):
+        for i in range(1,nx+1):
+            for j in range(1, ny+1):
                 temp[i,j] = (div[i,j] - (p[i-1,j] + p[i+1,j])/dx**2 - (p[i,j-1] + p[i,j+1])/dy**2)/D
 
         p[:] = temp[:]
@@ -144,8 +143,8 @@ def main():
     nx = 64
     ny = 64
 
-    lx = 1.0
-    ly = 1.0
+    lx = 1.
+    ly = 1.
     visc = 0.01
 
     dx = lx/nx
@@ -154,7 +153,7 @@ def main():
     dt = 0.1
     # dt = 0.5*min(dx**2/visc, dx)
     dump_dt = 1
-    total_time = 10.0
+    total_time = 10.
 
     FP_TYPE = np.float32
 
@@ -186,17 +185,17 @@ def main():
     u_conv = np.zeros_like(u)
     v_conv = np.zeros_like(u)
 
-    av_u_conv = 0.0
-    av_v_conv = 0.0
+    av_u_conv = 0.
+    av_v_conv = 0.
 
     fig, ax = plt.subplots()
     plots = []
 
     start = perf_counter()
 
-    t = 0.0
+    t = 0.
     step_counter = 0
-    time_to_next_dump = 0.0
+    time_to_next_dump = 0.
     while t < total_time:
         # u_conv[:] = u[:]
         # v_conv[:] = v[:]
@@ -207,7 +206,7 @@ def main():
             # plots.append([plot])
             # print(f"t={t} of {total_time}")
             # time_to_next_dump += dump_dt
-        u_prev[(X-lx/2.)**2 + (Y-ly/2.)**2 < 0.1**2] = 1.0
+        u_prev[(X-lx/2.)**2 + (Y-ly/2.)**2 < 0.1**2] = 1.
         diffuse(u, u_prev, dt, visc, nx, ny, dx, dy, set_u_bcs)
         diffuse(v, v_prev, dt, visc, nx, ny, dx, dy, set_v_bcs)
         project(u, v, u_prev, v_prev, nx, ny, dx, dy)
