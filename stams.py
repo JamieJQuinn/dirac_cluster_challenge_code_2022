@@ -58,8 +58,8 @@ def set_pressure_bcs(p):
     set_von_neumann_bcs(p)
 
 
-@njit
-def solve(A, x, b, r, p, nx, ny,
+@njit(parallel=True)
+def solve(A, x, b, params,
           apply_bcs=lambda x: x,
           max_iterations=100,
           conv_epsilon=1e-8):
@@ -68,56 +68,48 @@ def solve(A, x, b, r, p, nx, ny,
     A is a function which, given a vector, returns the matrix-vector product
     x is the initial guess and also the final output
     b is the right hand side of the matrix equation to be solved
-    r is the residuals array (same size as x)
-    p is the current guess array (same size as x)
     apply_bcs is a function which applies boundary conditions
     """
 
     apply_bcs(x)
 
+    Ax = np.zeros_like(x)
+    r = np.zeros_like(x)
+    p = np.zeros_like(x)
+
     r_norm = 0.0
-    for i in range(1, nx+1):
-        for j in range(1, ny+1):
-            r[i,j] = b[i,j] - A(x, i, j)
+    A(Ax, x, params)
+    for i in prange(1, nx+1):
+        for j in prange(1, ny+1):
+            r[i,j] = b[i,j] - Ax[i,j]
             p[i,j] = r[i,j]
             r_norm += (r[i,j])**2
 
     for k in range(max_iterations):
-        # print("direction pre-bcs")
-        # im = plt.imshow(p.T, origin='lower')
-        # plt.colorbar(im)
-        # plt.show()
         apply_bcs(p)
-        # print("direction post-bcs")
-        # im = plt.imshow(p.T, origin='lower')
-        # plt.colorbar(im)
-        # plt.show()
         pAp = 0.0
-        for i in range(1, nx+1):
-            for j in range(1, ny+1):
-                pAp += p[i,j]*A(p,i,j)
+        A(Ax, p, params)
+        for i in prange(1, nx+1):
+            for j in prange(1, ny+1):
+                pAp += p[i,j]*Ax[i,j]
         alpha = r_norm/pAp
-        # print(alpha, r_norm, pAp)
-        for i in range(1, nx+1):
-            for j in range(1, ny+1):
+        for i in prange(1, nx+1):
+            for j in prange(1, ny+1):
                 x[i,j] += alpha*p[i,j]
-        # print("solution")
-        # im = plt.imshow(x.T, origin='lower')
-        # plt.colorbar(im)
-        # plt.show()
         apply_bcs(x)
         r_norm_prev = r_norm
         r_norm = 0.0
-        for i in range(1, nx+1):
-            for j in range(1, ny+1):
-                r[i,j] = b[i,j] - A(x, i, j)
+        A(Ax, x, params)
+        for i in prange(1, nx+1):
+            for j in prange(1, ny+1):
+                r[i,j] = b[i,j] - Ax[i,j]
                 r_norm += (r[i,j])**2
         if r_norm < conv_epsilon:
             return
         beta = r_norm/r_norm_prev
         # beta = 0 # Restart from x
-        for i in range(1, nx+1):
-            for j in range(1, ny+1):
+        for i in prange(1, nx+1):
+            for j in prange(1, ny+1):
                 p[i,j] = r[i,j] + beta*p[i,j]
 
 
@@ -165,6 +157,18 @@ def project(u, v, p, div, nx, ny, dx, dy, max_iterations = 100):
 
         p[:] = temp[:]
         set_pressure_bcs(p)
+
+    # def nabla2(out, x, params):
+        # dx = params["dx"]
+        # dy = params["dy"]
+        # nx = params["nx"]
+        # ny = params["ny"]
+
+        # for i in prange(1,nx+1):
+            # for j in prange(1, ny+1):
+                # out[i,j] = (x[i+1,j] - 2.*x[i,j] + x[i-1,j])/dx**2 + (x[i,j+1] - 2.*x[i,j] + x[i,j-1])/dy**2
+
+    # solve(nabla2, p, div, {"dx":dx, "dy":dy, "nx":nx, "ny":ny}, set_von_neumann_bcs)
 
     for i in range(1,nx+1):
         for j in range(1, ny+1):
