@@ -53,14 +53,10 @@ def diffuse(x, x0, dt, diff, nx, ny, dx, dy, set_boundary_fn, n_iterations=100):
     Add diffusion term to x using Gauss-Siedel method
     """
     temp = np.zeros_like(x)
+    D = (1.+2.*diff*dt*(1./dx**2 + 1./dy**2))
     for k in range(n_iterations):
-        for i in range(1,nx+1):
-            for j in range(1, ny+1):
-                temp[i, j] = (x0[i,j]
-                           + diff*dt*(
-                                 (x[i-1,j] + x[i+1,j])/dx**2
-                               + (x[i,j-1] + x[i,j+1])/dy**2))\
-                        / (1.+2.*diff*dt*(1./dx**2 + 1./dy**2))
+        temp[1:-1,1:-1] = (x0[1:-1,1:-1] + diff*dt*(
+            (x[:-2,1:-1] + x[2:,1:-1])/dx**2 + (x[1:-1,:-2] + x[1:-1,2:])/dy**2))/D
         x[:] = temp[:]
         set_boundary_fn(x)
 
@@ -70,9 +66,7 @@ def project(u, v, p, div, nx, ny, dx, dy, max_iterations = 100):
     Calculate pressure required to keep fluid incompressible and add pressure force to flow
     """
     # JACOBI ITERATION
-    for i in range(1,nx+1):
-        for j in range(1, ny+1):
-            div[i,j] = 0.5*(u[i+1, j] - u[i-1, j])/dx + 0.5*(v[i, j+1] - v[i, j-1])/dy
+    div[1:-1,1:-1] = 0.5*(u[2:,1:-1] - u[:-2,1:-1])/dx + 0.5*(v[1:-1,2:] - v[1:-1,:-2])/dy
 
     p[:] = 0.
 
@@ -84,17 +78,12 @@ def project(u, v, p, div, nx, ny, dx, dy, max_iterations = 100):
     D = -2.*(1./dx**2 + 1./dy**2)
 
     for k in range(max_iterations):
-        for i in range(1,nx+1):
-            for j in range(1, ny+1):
-                temp[i,j] = (div[i,j] - (p[i-1,j] + p[i+1,j])/dx**2 - (p[i,j-1] + p[i,j+1])/dy**2)/D
-
+        temp[1:-1,1:-1] = (div[1:-1,1:-1] - (p[:-2,1:-1] + p[2:,1:-1])/dx**2 - (p[1:-1,:-2] + p[1:-1,2:])/dy**2)/D
         p[:] = temp[:]
         set_pressure_bcs(p)
 
-    for i in range(1,nx+1):
-        for j in range(1, ny+1):
-            u[i,j] -= 0.5*(p[i+1,j] - p[i-1,j])/dx
-            v[i,j] -= 0.5*(p[i,j+1] - p[i,j-1])/dy
+    u[1:-1,1:-1] -= 0.5*(p[2:,1:-1] - p[:-2,1:-1])/dx
+    v[1:-1,1:-1] -= 0.5*(p[1:-1,2:] - p[1:-1,:-2])/dy
 
     set_u_bcs(u)
     set_v_bcs(v)
@@ -185,8 +174,6 @@ def main():
     step_counter = 0
     time_to_next_dump = 0.
     while t < total_time:
-        # u_conv[:] = u[:]
-        # v_conv[:] = v[:]
         # if (t > time_to_next_dump):
             # plot = plt.quiver(x[1:-1], y[1:-1], u[1:-1,1:-1].T, v[1:-1,1:-1].T, animated=True)
             # if len(plots) == 0:
@@ -206,8 +193,6 @@ def main():
         pressure[:] = u_prev[:]
         u_prev[:] = u[:]
         v_prev[:] = v[:]
-        # av_u_conv = np.mean(np.abs(u_conv[:] - u[:]))
-        # av_v_conv = np.mean(np.abs(v_conv[:] - v[:]))
         t += dt
         step_counter += 1
 
