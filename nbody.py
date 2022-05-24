@@ -20,6 +20,16 @@ def random(num, a=0., b=1.):
 
 
 def calc_stable_orbit(r, theta):
+    """
+    Given a position (in polar coords) calculate the velocity required to keep the body in a stable, circular orbit around the origin. Also returns Cartesian positions.
+
+    Args:
+        r: list of radii (one per body)
+        theta: list of angles (one per body)
+
+    Returns:
+        List of Cartesian positions and velocities
+    """
     v_mag = 1./np.sqrt(r)
 
     pos = np.zeros((r.shape[0], 2))
@@ -34,10 +44,22 @@ def calc_stable_orbit(r, theta):
     return pos, vel
 
 
-def generate_random_star_system(num):
-    # Generate similar system to the solar system
-    r = random(num, 0.4, 20)
-    mass = random(num, 1/6000000, 1/1000)
+def generate_random_star_system(num, min_radius=0.4, max_radius=20, min_mass=1./6000000, max_mass=1./1000):
+    """
+    Generate positions, velocities and masses for a star system similar to our own. Assumes star is massive (with mass=1) with zero velocity at coords (0,0).
+
+    Args:
+        num: Number of bodies to simulate (including central star)
+        min_radius: sets the minimum radius possible
+        max_radius: sets the maximum radius possible
+        min_mass: sets the minimum mass possible
+        max_mass: sets the maximum mass possible
+
+    Returns:
+        Lists of positions, velocities and masses, one per body
+    """
+    r = random(num, min_radius, max_radius)
+    mass = random(num, min_mass, max_mass)
 
     theta = random(num, 0., np.pi)
     pos, vel = calc_stable_orbit(r, theta)
@@ -51,6 +73,10 @@ def generate_random_star_system(num):
 
 
 def create_solar_system():
+    """
+    Generate positions, velocities and masses for our own solar system. Assumes star is massive (with mass=1) with zero velocity at coords (0,0).
+    """
+
     # Solar system data from https://physics.stackexchange.com/questions/441608/solar-system-position-and-velocity-data
 
     names = ["Sun", "Mercury", "Venus", "Earth", "Mars", "Jupiter", "Saturn", "Neptune", "Uranus"]
@@ -66,15 +92,31 @@ def create_solar_system():
     return pos, vel, mass
 
 
-@njit(parallel=True)
 def calc_acc(acc, pos, mass):
+    """
+    Accumulate gravitational forces and calculate acceleration.
+
+    Args:
+        acc: array to be updated with new accelerations
+        pos: current positions of all bodies
+        mass: masses of all bodies
+    """
     for i in prange(len(pos)):
         r = pos[:,:] - pos[i,:]
         acc[i,:] = np.sum(r.T*mass/(r[:,0]**2 + r[:,1]**2 + EPSILON**2)**(1.5), axis=1)
 
 
-# @njit
 def advance_pos(acc, pos, pos_prev, pos_temp, dt):
+    """
+    Advance positions of all bodies based on previous position and current acceleration.
+
+    Args:
+        acc: list of accelerations
+        pos: current positions of all bodies
+        pos_prev: previous positions of all bodies
+        pos_temp: array to temporarily hold positions during calculation
+        dt: simulation timestep
+    """
     pos_temp[:,:] = pos[:,:]
     pos[:,:] = 2.0 * pos[:,:] - pos_prev[:,:] + acc[:,:] * dt**2
     pos_prev[:,:] = pos_temp[:,:]
