@@ -69,13 +69,8 @@ def create_solar_system():
 @njit(parallel=True)
 def calc_acc(acc, pos, mass):
     for i in prange(len(pos)):
-        acc[i,:] = 0.0
-        for j in range(len(pos)):
-            if i == j:
-                # Skip self-comparison
-                continue
-            r = pos[j] - pos[i]
-            acc[i,:] += r * mass[j] / (r[0]**2 + r[1]**2 + EPSILON**2)**(1.5)
+        r = pos[:,:] - pos[i,:]
+        acc[i,:] = np.sum(r.T*mass/(r[:,0]**2 + r[:,1]**2 + EPSILON**2)**(1.5), axis=1)
 
 
 # @njit
