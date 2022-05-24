@@ -99,7 +99,7 @@ def calc_acc(acc, pos, mass):
         pos: current positions of all bodies
         mass: masses of all bodies
     """
-    for i in prange(len(pos)):
+    for i in range(len(pos)):
         r = pos[:,:] - pos[i,:]
         acc[i,:] = np.sum(r.T*mass/(r[:,0]**2 + r[:,1]**2 + EPSILON**2)**(1.5), axis=1)
 
