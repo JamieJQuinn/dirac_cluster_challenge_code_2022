@@ -4,13 +4,10 @@ from scipy.constants import gravitational_constant as G
 import matplotlib.pyplot as plt
 from time import perf_counter
 
-from numba import njit, prange
 
-
-PARALLEL=False
-EPSILON = 0.01
 N_YEARS = 0.1
 N_PARTICLES = 100
+EPSILON = 1.1*np.power(N_PARTICLES, -0.48)
 FP_TYPE = np.float64
 
 
