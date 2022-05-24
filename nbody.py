@@ -83,7 +83,8 @@ def create_solar_system():
 
     mass = np.array((1,1/6023600,1/408524,1/332946.038,1/3098710,1/1047.55,1/3499,1/22962,1/19352))
     r = np.array((0.1, 0.4, 0.7, 1, 1.5, 5.2, 9.5, 19.2, 30.1))
-    pos, vel = calc_stable_orbit(r, random(len(r), 0., np.pi))
+    theta = random(len(r), 0., np.pi)
+    pos, vel = calc_stable_orbit(r, theta)
 
     pos[0,:] = 0.
     vel[0,:] = 0.
@@ -147,7 +148,6 @@ def main():
         t += dt
 
     end = perf_counter()
-
     print(f"Time to complete: {end-start}")
 
     positions_for_plotting = np.array(pos_tracker)
