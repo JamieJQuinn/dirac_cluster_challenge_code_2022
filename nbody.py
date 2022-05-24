@@ -75,9 +75,9 @@ def calc_acc(acc, pos, mass):
 
 # @njit
 def advance_pos(acc, pos, pos_prev, pos_temp, dt):
-    pos_temp[:] = pos[:]
-    pos[:] = 2.0 * pos - pos_prev + acc * dt**2
-    pos_prev[:] = pos_temp[:]
+    pos_temp[:,:] = pos[:,:]
+    pos[:,:] = 2.0 * pos[:,:] - pos_prev[:,:] + acc[:,:] * dt**2
+    pos_prev[:,:] = pos_temp[:,:]
 
 
 def main():
