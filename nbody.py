@@ -92,7 +92,7 @@ def create_solar_system():
 
 def calc_acc(acc, pos, mass):
     """
-    Accumulate gravitational forces and calculate acceleration.
+    Accumulate gravitational forces and calculate acceleration. This uses a very simple method which directly calculates the gravitational interaction between every single pair of bodies.
 
     Args:
         acc: array to be updated with new accelerations
@@ -106,7 +106,7 @@ def calc_acc(acc, pos, mass):
 
 def advance_pos(acc, pos, pos_prev, pos_temp, dt):
     """
-    Advance positions of all bodies based on previous position and current acceleration.
+    Advance positions of all bodies based on previous position and current acceleration. This uses the Verlet method which is useful for simulations of simple equations of motion. It is 4th-order accurate in dt (compared to only 1st-order for the Euler method) making it suitable for longer-running simulations like this one.
 
     Args:
         acc: list of accelerations
@@ -128,12 +128,17 @@ def main():
     pos_tracker = []
 
     # Load initial conditions
-    # pos, vel, mass = create_solar_system()
-    pos, vel, mass = generate_random_star_system(N_PARTICLES)
+    pos, vel, mass = create_solar_system()
+    # pos, vel, mass = generate_random_star_system(N_PARTICLES)
     acc = np.zeros_like(pos)
-    calc_acc(acc, pos, mass)
-    pos_prev = pos - vel*dt - 0.5*acc*dt**2
     pos_temp = np.zeros_like(pos)
+    pos_prev = np.zeros_like(pos)
+
+    # Figure out initial acceleration
+    calc_acc(acc, pos, mass)
+
+    # Calculate previous position from velocity
+    pos_prev[:] = pos - vel*dt - 0.5*acc*dt**2
 
     start = perf_counter()
 
@@ -149,8 +154,7 @@ def main():
 
     positions_for_plotting = np.array(pos_tracker)
 
-    ax = plt.axes(projection='3d')
-    ax = plt.axes()
+    fig, ax = plt.subplots()
     xmin, xmax = 0.0, 0.0
     ymin, ymax = 0.0, 0.0
     for i in range(len(pos)):
@@ -168,7 +172,6 @@ def main():
     ymin = -ymax
     plt.xlim(xmin, xmax)
     plt.ylim(ymin, ymax)
-    plt.legend()
     plt.show()
 
 
