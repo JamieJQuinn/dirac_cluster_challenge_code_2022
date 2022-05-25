@@ -58,7 +58,7 @@ def generate_random_star_system(num, min_radius=0.4, max_radius=20, min_mass=1./
     r = random(num, min_radius, max_radius)
     mass = random(num, min_mass, max_mass)
 
-    theta = random(num, 0., np.pi)
+    theta = random(num, 0., 2.0 * np.pi)
     pos, vel = calc_stable_orbit(r, theta)
 
     # Add central star
@@ -80,7 +80,7 @@ def create_solar_system():
 
     mass = np.array((1,1/6023600,1/408524,1/332946.038,1/3098710,1/1047.55,1/3499,1/22962,1/19352))
     r = np.array((0.1, 0.4, 0.7, 1, 1.5, 5.2, 9.5, 19.2, 30.1))
-    theta = random(len(r), 0., np.pi)
+    theta = random(len(r), 0., 2.0 * np.pi)
     pos, vel = calc_stable_orbit(r, theta)
 
     pos[0,:] = 0.
