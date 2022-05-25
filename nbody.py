@@ -11,8 +11,8 @@ EPSILON = 1.1*np.power(N_PARTICLES, -0.48)
 FP_TYPE = np.float64
 
 
-def random(num, a=0., b=1.):
-    rng = default_rng()
+def random(num, a=0., b=1., seed=12345):
+    rng = default_rng(seed)
     return rng.random(num, dtype=FP_TYPE)*(b-a) + a
 
 
